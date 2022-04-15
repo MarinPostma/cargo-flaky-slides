@@ -1,0 +1,213 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>reveal.js</title>
+
+		<link rel="stylesheet" href="dist/reset.css">
+		<link rel="stylesheet" href="dist/reveal.css">
+		<link rel="stylesheet" href="dist/theme/black.css">
+
+		<!-- Theme used for syntax highlighted code -->
+		<link rel="stylesheet" href="plugin/highlight/monokai.css">
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+				<section>
+					<img src="img/marin.jpeg" style="border-radius:50%;"></img>
+					<p>Marin Postma</p>
+					<p>Meilisearch</p>
+					<i class="fa-brands fa-github" style="font-size: 0.7em;"></i><span style="font-size: 0.7em; padding: 0.3em;"> MarinPostma</span>
+				</section>
+
+				<section>
+					<h1>Flaky tests</h1>
+					<h4>How to deal with non-deterministic test failure in Rust</h4>
+				</section>
+
+				<section>
+					<h2>Flaky you say? 🤔</h2>
+					<h4 class="fragment">Sometimes it works...</h4>
+					<h4 class="fragment">Sometimes it fails...</h4>
+					<h4 class="fragment">... Always painful</h4>
+				</section>
+
+				<section>
+					<h2>What causes flakiness?</h2>
+					<ul>
+					<li class="fragment">Something's wrong with the test code</li>
+					<li class="fragment">Something's wrong with the product code</li>
+					</ul>
+				</section>
+
+				<section>
+				<section>
+					<h2>Buggy tests</h2>
+				</section>
+
+				<section>
+					<h2>Always check your tests first!</h2>
+				</section>
+
+				<section>
+					<h3>look for tests that rely on:</h3>
+					<ul>
+					<li class="fragment">time</li>
+					<li class="fragment">ordering</li>
+					<li class="fragment">values being within some range</li>
+					<li class="fragment">some external environment</li>
+					<li class="fragment">global state</li>
+					</ul>
+				</section>
+
+				</section>
+
+				<section>
+				<section>
+					<h2>Buggy product</h2>
+				</section>
+				<section> <pre>
+					<code data-trim data-noescape>
+fn square_then_add_two(mut input: usize) -> usize {
+    let (tx, rx) = mpsc::channel();
+
+    let tx_clone = tx.clone();
+    spawn(move || { tx.send(Ops::Square).unwrap(); });
+
+    spawn(move || {
+        sleep(Duration::from_nanos(1));
+        tx_clone.send(Ops::AddTwo).unwrap();
+    });
+
+
+    while let Ok(op) = rx.recv() {
+        input = match op {
+            Ops::Square => input * input,
+            Ops::AddTwo => input + 2,
+        }
+    }
+
+    input
+}
+					  </code>
+					</pre>
+				</section>
+
+				<section>
+					<pre>
+					<code data-trim data-noescape>
+    #[test]
+    fn my_test() {
+        assert_eq!(square_then_add_two(7), 51);
+    }
+					  </code>
+					</pre>
+					<img src="img/testpass.png"></img>
+				</section>
+				<section>
+					<h1>Ready for Review!</h1>
+					<p class="fragment">right?</p>
+				</section>
+				<section>
+<a href="https://asciinema.org/a/ygnvfjAr6fNkP5zIHa9omuu9q" target="_blank"><img src="https://asciinema.org/a/ygnvfjAr6fNkP5zIHa9omuu9q.svg" /></a>
+				</section>
+
+				<section>
+					<h2>Say hi to rr! 👋</h2>
+					<ul>
+					<li class="fragment">created at Mozilla</li>
+					<li class="fragment">"reverse" debugger</li>
+					<li class="fragment">deterministically record the execution of a program</li>
+					<li class="fragment">debug in GNU debugger (gdb)</li>
+					<li class="fragment">check it out at <a>https://rr-project.org/</a></li>
+					</ul>
+				</section>
+
+				<section>
+					<h1>Let's fix it! 💪</h1>
+				</section>
+				<section>
+				<a href="https://asciinema.org/a/ex4F7I5Wvm4oVNPWQ008PPkqz" target="_blank"><img src="https://asciinema.org/a/ex4F7I5Wvm4oVNPWQ008PPkqz.svg" /></a>
+				</section>
+
+				<section>
+					<pre>
+					<code data-trim data-noescape class="language-rust">
+fn square_then_add_two(input: usize) -> usize {
+    input * input + 2
+}
+					  </code>
+					</pre>
+				</section>
+
+				<section>
+					Introducing cargo flaky!
+				</section>
+
+				<section>
+<a href="https://asciinema.org/a/fIbkMqoUYKQxLWiujGBqz4uFj" target="_blank"><img src="https://asciinema.org/a/fIbkMqoUYKQxLWiujGBqz4uFj.svg" /></a>
+				</section>
+
+				<section>
+					<pre>
+					<code data-trim data-noescape class="language-bash">
+					  cargo install cargo-flaky
+					  </code>
+					</pre>
+
+					<h5>github: meilisearch/cargo-flaky</h5>
+				</section>
+				</section>
+
+				<section>
+
+				<section>
+					<h1>Caveats:</h1>
+					<ul>
+						<li>Only works on x86-64 Linux</li>
+						<li>Relies on good debug symbols generation</li>
+					</ul>
+				</section>
+				</section>
+
+				<section>
+					<h1>Takeaways</h1>
+					<ul>
+						<li>Continually check for flakiness</li>
+						<li>Always check the tests first</li>
+						<li>Fallback to git bisect + cargo flaky</li>
+						<li>Do not ignore flaky tests</li>
+					</ul>
+				</section>
+
+				<section>
+					<h1>Thank you!</h1>
+				</section>
+
+			</div>
+		</div>
+
+		<script src="dist/reveal.js"></script>
+		<script src="plugin/notes/notes.js"></script>
+		<script src="plugin/markdown/markdown.js"></script>
+		<script src="plugin/highlight/highlight.js"></script>
+		<script src="https://kit.fontawesome.com/4cc77f800a.js" crossorigin="anonymous"></script>
+		<script>
+			// More info about initialization & config:
+			// - https://revealjs.com/initialization/
+			// - https://revealjs.com/config/
+			Reveal.initialize({
+				hash: true,
+				//width: "80%",
+				//height: "60%",
+				margin: 0.00001,
+							minScale: 1.5,
+				// Learn about plugins: https://revealjs.com/plugins/
+				plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
+			});
+		</script>
+	</body>
+</html>
